@@ -628,3 +628,255 @@
 ;; A princípio essa função não é natural para mim, o pensamento procedural ainda me pega e
 ;; escrever essas funções sem ajuda de ferramentas que auxiliem no rastreio dos parênteses
 ;; é massante.
+
+;; Calling Structure-Specific Functions
+
+;; Olhando em retrospectiva nós estamos criando código para sequências e em geral o código
+;; deve funcionar para qualquer estrutura utilizadas (vec map set), porém às vezes é preciso
+;; escrever um código mais específico e que seja mais performático.
+;; Veremos então algumas funções específicas para as estruturas.
+
+;; Funções para listas
+
+;; (peek [coll])
+;; Retorna o primeiro elemento de uma lista, assim como o `first` mas é muito mais rápido para
+;; vetores.
+(peek [1 2 3])
+; 1
+
+;; (pop [coll])
+;; Retorna todos os elementos de uma lista sem incluir o último elemento.
+;; Lança uma exceção se a lista estiver vazia.
+(pop '())
+; Execution error (IllegalStateException) at user/eval158 (REPL:1).
+; Can't pop empty list
+(pop [1 2 3])
+; [1 2]
+
+;; Funções para vetores
+;; Como já vimos, pop e peek também funcionam para vetores, agora veremos outras funções.
+
+;; (get [map key] [map key not-found])
+
+;; Acessa um índice de um vetor
+(get [:a :b :c] 1)
+; :b
+
+; Acessa um índice inexistente e retorna nil
+(get [:a :b :c] 5)
+; nil
+
+;; (assoc~iate~ [map key val] [map key val & kvs])
+;; Substitui um valor em uma determinada posição de um vetor
+(assoc [1 2] 0 :one)
+; [:one 2]
+
+;; (subvec [v start] [v start end])
+;; Retorna uma fatia do vetor com base nos índices de start e fim passados.
+;; O índice final é não inclusivo.
+(subvec [0 1 2 3 4 5] 4)
+; [4 5]
+(subvec [0 1 2 3 4 5] 2 4)
+;; [2 3]
+
+;; Lança uma exceção se o índice final for maior do que o tamanho do vetor.
+;; IndexOutOfBoundsException
+;; (subvec [0 1 2 3 4 5] 4 100)
+
+;; É possível simular o mesmo comportamento com funções
+;; mais generalistas como o take e o drop. Porém o subvec trabalha em tempo O(1)
+;; o que é muito rápido para essa estrutura.
+(take 2 (drop 4 [0 1 2 3 4 5]))
+
+;; Funções para maps
+
+;(keys [map])
+;; Retorna uma sequência com todas as chaves do mapa
+(def me {:first-name "joffily" :last-name "F"})
+
+(keys me)
+; (:first-name :last-name)
+
+; (vals [map])
+;; Retorna os valores do mapa
+(vals me)
+; ("joffily" "F")
+
+; (get [map key] [map key not-found])
+;; Assim como para as listas e vetores, o get acessa o mapa mas utiliza uma chave para tal.
+(get me :first-name "not-found")
+; joffily
+
+;; Também é possível passar um valor padrão para quando uma chave não existe
+(get me :mid-name "not-found")
+; "not-found"
+
+;; Também é possível acessar uma chave sem utilizar a função `get`.
+;; O livro detalha que os mapas são funções de suas chaves (?)
+(me :first-name)
+; "joffily"
+
+;; Também fala que as `keywords` são funções como os mapas
+(:first-name me)
+; "Joffily"
+
+(:mid-name me)
+; nil
+
+;; (contains? [map])
+;; É uma função predicado que verifica se uma chave existe em um mapa.
+(def me {:first-name "joffily" :last-name "F" :age nil})
+(get me :age)
+; nil
+;; Utilizando o (get) nós podemos achar que uma chave não existe mas na verdade o seu valor é nil
+;; se setassemos o valor padrão poderíamos saber se ela existe ou não mas a solução começa a ficar
+;; complicada apenas para checar algo. Sem falar que o valor retornado pode ser um false lógico.
+;; Contains ao resgate:
+
+(contains? me :age)
+; true
+
+(contains? me :mid-name)
+; false
+
+;; Ainda temos funções para manipulação de mapas como:
+;; 1) assoc
+;; 2) dissoc
+;; 3) select-keys
+;; 4) merge
+
+;; (assoc [map key val & kvs])
+;; Associa chaves e valores a um mapa
+(assoc me :mid-name "S")
+; {:first-name "joffily", :last-name "F", :age nil, :mid-name "S"}
+
+; (dissoc [map] [map key] [map key & ks])
+;; Disassocia chaves de um mapa
+(dissoc me :last-name :age)
+; {:first-name "joffily"}
+
+; (merge [& maps])
+;; Combina os mapas. Se alguma chave for repetida a que valerá é a do mapa
+;; mais a direita
+(merge me {:where "SP"})
+; {:first-name "joffily", :last-name "F", :age nil, :where "SP"}
+
+(merge me {:where "SP"} {:where "PB"})
+; {:first-name "joffily", :last-name "F", :age nil, :where "PB"}
+
+; (merge-with [f & maps])
+;; Que tal associar vários mapas e não perder valores de chaves repetidas?
+;; Com o merge-with nós podemos passar uma função que decidirá como tratar esses casos.
+;; No exemplo abaixo nós usamos a func. concat para concatenar as strings
+(merge-with concat me {:where "SP"} {:where "PB"})
+; {:first-name "joffily", :last-name "F", :age nil, :where (\S \P \P \B)}
+
+(merge-with #(str %1 %2) me {:age 1} {:age 2})
+; {:first-name "joffily", :last-name "F", :age "12"}
+
+;; Funções para Sets
+(require '[clojure.set :as setfns])
+(def group-1 #{\a \b \c \d})
+(def group-2 #{\a \d \e \f})
+
+;; (union [] [s1] [s1 s2] [s1 s2 & sets])
+(setfns/union group-1 group-2)
+; #{\a \b \c \d \e \f}
+
+;; (difference [s1] [s1 s2 & sets])
+;; Retorna os elementos do primeiro set que não combinam com os elementos do segundo set
+(setfns/difference group-1 group-2)
+; #{\b \c}
+
+(setfns/difference group-2 group-1)
+; #{\e \f}
+
+;; (intersection [s1] [s1 s2 & sets])
+;; Retorna a inserseção dos sets
+(setfns/intersection group-1 group-2)
+; #{\a \b}
+
+;; (select [pred xset])
+;; Retorna os elementos do set em que o prédicado retorna true
+(setfns/select #(= 1 (count %)) #{"nome" "sobrenome" "m" "1"})
+; #{"1" "m"}
+
+;; Os sets junto das funções disponíveis em clojure.set podem ser muito
+;; úteis e poderesos para manusear dados. É possível até simular um sistema
+;; SQL com a lógica relacional empregada por essa estrutura de dados e suas funções.
+;; O livro traz alguns exemplos.
+
+; obras
+(def compositions
+  #{{:name "The Art of the Fugue" :composer "J. S. Bach"}
+    {:name "Musical Offering" :composer "J. S. Bach"}
+    {:name "Requiem" :composer "Giuseppe Verdi"}
+    {:name "Requiem" :composer "W. A. Mozart"}})
+
+; compositores
+(def composers
+  #{{:composer "J. S. Bach" :country "Germany"}
+    {:composer "W. A. Mozart" :country "Austria"}
+    {:composer "Giuseppe Verdi" :country "Italy"}})
+
+; países
+(def nations
+  #{{:nation "Germany" :language "German"}
+    {:nation "Austria" :language "German"}
+    {:nation "Italy" :language "Italian"}})
+
+; clojure.set/rename ([xrel kmap])
+; Returns a rel of the maps in xrel with the keys in kmap renamed to the vals in kmap
+(setfns/rename compositions {:name :title})
+
+;; Seria mais ou menos com um `AS` de um select
+; #{{:composer "Giuseppe Verdi", :title "Requiem"}
+;   {:composer "W. A. Mozart", :title "Requiem"} 
+;   {:composer "J. S. Bach", :title "The Art of the Fugue"} 
+;   {:composer "J. S. Bach", :title "Musical Offering"}}
+
+;; clojure.set/select ([pred xset])
+;; Returns a set of the elements for which pred is true
+;; Funciona como um WHERE
+(setfns/select #(= (:country %) "Germany") composers) ;foda!
+; #{{:composer "J. S. Bach", :country "Germany"}}
+
+;; clojure.set/project ([xrel ks])
+;; Returns a rel of the elements of xrel with only the keys in ks
+;; Faz a projeção de chaves de um mapa. É como o SELECT do SQL e a projeção do MongoDB
+(setfns/project nations [:language])
+; #{{:language "German"} {:language "Italian"}}
+
+;; O livro fala então da última primitiva que é importante para a teória dos conjuntos
+;; que é o full-cross-relational onde nós temos todas as relações possíveis entre os
+;; sets passados.
+;; Podemos obter isso através do for
+(for [m compositions c composers] (concat m c))
+; (([:name "Musical Offering"] [:composer "J. S. Bach"] [:composer "Giuseppe Verdi"] [:country "Italy"]) ([:name "Musical Offering"] [:composer "J. S. Bach"] [:composer "J. S. Bach"] [:country "Germany"]) ([:name "Musical Offering"] [:composer "J. S. Bach"] [:composer "W. A. Mozart"] [:country "Austria"]) ([:name "The Art of the Fugue"] [:composer "J. S. Bach"] [:composer "Giuseppe Verdi"] [:country "Italy"]) ([:name "The Art of the Fugue"] [:composer "J. S. Bach"] [:composer "J. S. Bach"] [:country "Germany"]) ([:name "The Art of the Fugue"] [:composer "J. S. Bach"] [:composer "W. A. Mozart"] [:country "Austria"]) ([:name "Requiem"] [:composer "Giuseppe Verdi"] [:composer "Giuseppe Verdi"] [:country "Italy"]) ([:name "Requiem"] [:composer "Giuseppe Verdi"] [:composer "J. S. Bach"] [:country "Germany"]) ([:name "Requiem"] [:composer "Giuseppe Verdi"] [:composer "W. A. Mozart"] [:country "Austria"]) ([:name "Requiem"] [:composer "W. A. Mozart"] [:composer "Giuseppe Verdi"] [:country "Italy"]) ([:name "Requiem"] [:composer "W. A. Mozart"] [:composer "J. S. Bach"] [:country "Germany"]) ([:name "Requiem"] [:composer "W. A. Mozart"] [:composer "W. A. Mozart"] [:country "Austria"]))
+
+(for [m #{{:a 1 :b 1}} c #{{:c 2 :d 2} {:e 3 :f 3}}] (concat m c))
+; (([:a 1] [:b 1] [:e 3] [:f 3]) ([:a 1] [:b 1] [:c 2] [:d 2]))
+
+;; Acho que isso é implementado no Clea entre as afiliações e as referências.
+
+;; Mais interessante do que isso é poder fazer o JOIN do select com base em alguma chave
+; clojure.set/join([xrel yrel] [xrel yrel km])
+
+(setfns/join compositions composers)
+; #{{:composer "W. A. Mozart", :country "Austria", :name "Requiem"} {:composer "J. S. Bach", :country "Germany", :name "Musical Offering"} {:composer "Giuseppe Verdi", :country "Italy", :name "Requiem"} {:composer "J. S. Bach", :country "Germany", :name "The Art of the Fugue"}}
+;; Aqui o clojure olhou para as chaves que combinam nos dois sets, neste caso é a :composer
+;; Se as chaves não tiverem o mesmo nome nós podemos criar uma relação mesmo assim
+
+(setfns/join composers nations {:country :nation})
+; #{{:composer "W. A. Mozart", :country "Austria", :nation "Austria", :language "German"}
+;   {:composer "J. S. Bach", :country "Germany", :nation "Germany", :language "German"}
+;   {:composer "Giuseppe Verdi", :country "Italy", :nation "Italy", :language "Italian"}}
+
+;; E pra fechar, o livro demonstra como fazer um select com uma projeção, utilizando JOIN e where
+;; Mostramos apenas os países dos compositores que escreveram uma composição de nome "Requiem"
+(setfns/project
+ (setfns/join
+  (setfns/select #(= (:name %) "Requiem") compositions)
+  composers)
+ [:country])
+;  #{{:country "Italy"} {:country "Austria"}}
