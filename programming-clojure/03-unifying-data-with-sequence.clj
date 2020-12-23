@@ -268,3 +268,365 @@ split-at takes an index, and split-with takes a predicate:
 [(\a \e \i) (\w \a \e \i \o \u)]
 
 ;; todas essas funções retornam sequências lazy.
+
+;; 3) Sequências predicados
+
+;; (every? pred coll)
+;; Retorna true se para todos os itens da coleção o predicado
+;; retornar o `true` lógico
+(every? even? whole-numbers)
+; false
+;; Mesmo sendo uma sequência infinita, ao encontrar o primeiro número ímpar
+;; a função retorna false
+
+(every? even? '(2 4 6))
+; true
+
+;; (some pred coll)
+;; Assim como a func `every?` a função some recebe
+;; um predicado e uma coleção, porém ela não é um predicado
+;; por si só, não há a `?` no seu nome. Porém ela é muito
+;; utilizada com predicados.
+(some even? '(1 2 3 4))
+;; true
+
+;; A doc (doc some) fala sobre o uso de Sets como predicados
+;; algo como (some #{\a} ..), funcionaria para verificar possíveis
+;; valores mas diferentemente do `filter`, nós teríamos
+;; valor de resposta `valor buscado` ou `nil` (false lógico)
+(some #{10} (range 100))
+; 10
+(some #{\a} "não há vowel A em formAto minúsculo")
+; nil
+(some #{\a} "não há vowel a em formato minúsculo")
+; \a
+
+;; Aqui o livro fala sobre o match lógico da função some
+;; e da um exemplo para ilustrar o match lógico
+(some identity [nil false 1 nil 2])
+; 1
+
+;; a função identity retorna o mesmo valor recebido,
+;; sendo assim a função `some` aplica a comparação
+;; lógica booleana para os valores;
+;; nil é true lógico? Não, próximo
+;; false é true lógico? Não, próximo
+;; 1 é true lógico? Sim, retorna 1
+
+;; (not-every? pred coll)
+;; Funciona como a `every?` porém retorna true se ao menos um item for `true` lógico
+(not-every? even? [1 2 4 6])
+; true
+
+;; (not-any? pred coll)
+;; Retorna false se alguma verificação for true
+;; exemplo even? 2 -> true, então not-every? retorna false:
+;; 'Returns false if (pred x) is logical true for any x'
+(not-any? even? [1 2 4 6])
+; false
+
+(not-any? even? [1 3 5])
+; true
+
+;; 4) Transformando sequências
+
+;; (map f coll)
+;; Assim como em outras linguagens, o map navega entre os elementos de
+;; uma seq. retornando os elementos com alguma transformação aplicada
+;; por meio de uma função.
+(map #(format "<p>%s</p>" %) ["the" "quick" "brown" "fox"])
+; ("<p>the</p>" "<p>quick</p>" "<p>brown</p>" "<p>fox</p>")
+;; (map [f] [f coll] [f coll1 coll2] [f coll1 coll2 coll3] [f c1 c2 c3 &colls])
+;; A aridade da função map é esta acima, é possível ver que podemos compor essa função
+;; de diversas maneiras, com um número variável de coleções.
+
+;; Exemplo com mais de uma coleção como entrada
+(map #(format "<%s>%s</%s>" %1 %2 %1)
+     ["h1" "h2" "h3" "h1"] ["the" "quick" "brown" "fox"])
+; ("<h1>the</h1>" "<h2>quick</h2>" "<h3>brown</h3>" "<h1>fox</h1>")
+
+;; (reduce f coll)
+; f should be a function of 2 arguments. If val is not supplied,
+; returns the result of applying f to the first 2 items in coll, then
+; applying f to that result and the 3rd item, etc. If coll contains no
+; items, f must accept no arguments as well, and reduce returns the
+; result of calling f with no arguments.  If coll has only 1 item, it
+; is returned and f is not called.  If val is supplied, returns the
+; result of applying f to val and the first item in coll, then
+; applying f to that result and the 2nd item, etc. If coll contains no
+; items, returns val and f is not called.
+
+(reduce + (range 1 11))
+; 55
+
+;; (sort ([coll] [comp coll]))
+;; Ordena uma sequência. Se um comparador `comp` não for passado
+;; a função usará o `comparator` que é um `java.util.Comparator`.
+(sort (range 10 0 -1))
+; (1 2 3 4 5 6 7 8 9 10)
+
+(sort [42 1 7 11])
+; (1 7 11 42)
+
+;; utilizando um comparador como o `>`
+(sort > [42 1 7 11])
+; (42 11 7 1)
+
+
+;; (sort-by [keyfn coll] [keyfn comp coll])
+;; Returns a sorted sequence of the items in coll, where the sort
+;; order is determined by comparing (keyfn item)
+(sort-by #(.toString %) [42 1 7 11])
+; (1 11 42 7)
+
+;; Essa função é naturalmente útil para ordenar uma sequência de maps
+;; utilizando alguma chave destes maps
+(sort-by :grade > [{:grade 83} {:grade 90} {:grade 77}])
+; ({:grade 90} {:grade 83} {:grade 77})
+
+(def m [{:idade 17 :salario 3000 :nome "C"}
+        {:idade 18 :salario 1000 :nome "A"}
+        {:idade 19 :salario 800 :nome "B"}])
+
+(sort-by :idade m)
+; ({:idade 17, :salario 3000, :nome "C"} 
+; {:idade 18, :salario 1000, :nome "A"} 
+; {:idade 19, :salario 800, :nome "B"})
+
+(sort-by :idade > m)
+; ({:idade 19, :salario 800, :nome "B"} 
+; {:idade 18, :salario 1000, :nome "A"} 
+; {:idade 17, :salario 3000, :nome "C"})
+
+
+(sort-by :salario m)
+; ({:idade 19, :salario 800, :nome "B"} 
+; {:idade 18, :salario 1000, :nome "A"} 
+; {:idade 17, :salario 3000, :nome "C"})
+
+(sort-by :nome m)
+; ({:idade 18, :salario 1000, :nome "A"} 
+; {:idade 19, :salario 800, :nome "B"} 
+; {:idade 17, :salario 3000, :nome "C"})
+
+
+;; Seq Comprehensions
+;; Pode-se emular os comportamentos acima com o macro `for``
+; (for [seq-exprs body-expr])
+; (for [binding-form coll-expr filter-expr? ...] expr)
+(for [word ["primeira" "segunda"]]
+  (str/upper-case word))
+; ("PRIMEIRA" "SEGUNDA")
+
+(for [numero-par (range 10) :when (even? numero-par)]
+  numero-par)
+; (0 2 4 6 8)
+
+;; é possível utiliza o :while como expressão de filtro, assim como o :when,
+;; assim o for aqui será similar ao take-while
+;; (take-while odd? '(1 2 3 4 5))
+(for [n whole-numbers :while (odd? n)] n)
+; (1)
+
+;; Segundo o livro, o for é realmente útil quando queremos trabalhar com mais de um binding
+;; como no exemplo a seguir.
+(for [file "ABC"
+      rank (range 1 9)]
+  (format "%c->%d" file rank))
+
+; ("A->1" "A->2" "A->3" "A->4" "A->5" "A->6" "A->7" "A->8" "B->1" "B->2" "B->3" "B->4" "B->5" "B->6" "B->7" "B->8" "C->1" "C->2" "C->3" "C->4" "C->5" "C->6" "C->7" "C->8")
+;; Me parece muito uma forma de navegar em uma matriz.
+
+
+; Clojure iterates over the rightmost binding expression in a sequence comprehension 
+; first and then works its way left. Because rank is listed to the right of file in the 
+; binding form, rank iterates faster. If you want files to iterate faster, you can reverse 
+; the binding order and list rank first.
+(for [rank (range 1 9) file "ABC"]
+  (format "%c->%d" file rank))
+; ("A->1" "B->1" "C->1" "A->2" "B->2" "C->2" "A->3" "B->3" "C->3" "A->4" "B->4" "C->4" "A->5" "B->5" "C->5" "A->6" "B->6" "C->6" "A->7" "B->7" "C->7" "A->8" "B->8" "C->8")
+
+
+; Quando invertemos a ordem de binding o `for` passa a iterar primeiro na coleção
+; `file` em vez de `rank` como no exemplo anterior
+
+;; Lazy and Infinites Sequences
+;; Boa parte das seq. em Clojure são lazy, e isso quer dizer que os elementos não
+;; são calculados em tempo de definição, ou seja, eles são calculados apenas quando necessário.
+;; Alguns benefícios desse comportamento:
+;; 1) Você pode postergar cargas de trabalho que exigem alta capacidade computacional
+;; e isso quer dizer que o trabalho só será feito se necessário (alguma chamada).
+;; 2) Você pode trabalhar com uma quantidade enorme de dados que não cabem em memória. Assim
+;; eles só serão carregados no momento de trabalho.
+;; 3) Você pode postergar o I/O até o momento onde é necessário faze-lo
+
+;; O livro traz um exemplo de função que opera de forma lazy em uma coleção infinita de números,
+;; retorna todos os números primos (que são infinitos). Mas o livro pontua que mesmo assim
+;; os dados cabem em memória quando usamos funções como `take` e `drop` já que apenas os resultados
+;; mantidos ou excluídos por essas funções são retornados.
+;; Seria o mesmo que executar algo como:
+;; (take 1 (drop 100000000000 func-numeros-primos))
+;; Assim a função `drop` excluíria os primeiros `100000000000` números primos e a `take`
+;; retornaria o 100000000001 primo. A execução demoraria, claro.
+
+;; O livro continua e fala sobre utilização de sequências preguiçosas, sobre o uso to `take`
+;; para garantir que a seq. não erá avaliada completamente (o que seria ruim). Mas o livro também
+;; fala que em alguns momento você pode querer SIM que uma seq. preguiçosa seja avaliada de forma prévia
+;; e segundo o livro, tal situação ocorre principalmente quando a função possui algum efeito colateral
+;; o que é o caso do exemplo: (def x (for [i (range 1 3)] (do (println i) i)))
+(def x (for [i (range 1 3)] (do (println (str "n:" i)) i))) ;; #'user/x
+;; Definimos um símbolo `x` que guarda uma seq. lazy produzida pelo macro `for`,
+;; é perceptível que ao definir o código o `println` não exibe nada porque a seq não é avaliada
+; préviamente. Para forçar a avaliação da seq nós podemos utilizar o `doall`
+
+(doall x)
+; n:1
+; n:2
+; (1 2)
+;; Aqui o `doall` força que a seq seja avaliada e retorna a seq resultante
+
+;; Podemos utilizar também o `dorun`
+;; (dorun [coll] [n coll])
+(def y (for [i (range 1 3)] (do (println (str "n:" i)) i))) ;; #'user/y
+(dorun y)
+; n:1
+; n:2
+; nil
+;; A diferença para o `doall` é que o `dorun` não retorna a lista avaliada,
+;; sendo assim, os valores computados não são salvos em memória.
+;; Essas funções são utilizadas quando queremos forçar os efeitos colaterais que
+;; estão empacotados por meio de uma seq. preguiçosa.
+
+;; Clojure Makes Java Seq-able
+;; As funções `first` e `rest` podem ser utilizadas em tudo que pode ter mais
+;; de um item. E isso inclui os seguintes tópicos no Java:
+;; 1) A API de coleções
+;; 2) Expressões regulares
+;; 3) A navegação pelo sistema de arquivos
+;; 4) Processamento de XMLs
+;; 5) Os resultados de bancos relacionais
+
+;; 1) A API de coleções
+;; "If you try to apply the sequence functions to Java collections, 
+;; you’ll find that they behave as sequences. Collections that can act
+;; as sequences are called seq-able. For example, arrays are seq-able"
+
+;; O getBytes retorna uma Array de bytes
+(map int (.getBytes "hello"))
+; (104 101 108 108 111)
+
+(first (.getBytes "hello"))
+; 104
+
+(last (.getBytes "hello"))
+; 111
+
+(cons (int \h) (.getBytes "ello"))
+; (104 101 108 108 111)
+
+;; O getProperties retorna uma HashTable
+(first (System/getProperties))
+; #object[java.util.concurrent.ConcurrentHashMap$MapEntry 0x25e49cb2 "java.specification.version=15"]
+
+;; Strings são uma sequência de caracteres, então elas são seq-able;
+(first "hello world")
+; \h
+
+(rest "hello world")
+; (\e \l \l \o \space \w \o \r \l \d)
+
+
+;; O clojure transforma automaticamente as coleções em sequências mas o sentido inverso não é
+;; verdadeiro. Por exemplo:
+
+(reverse "hello")
+; (\o \l \l \e \h)
+
+;; Seria natural esperar que o resultado fosse "olleh" ("hello" invertido) mas o que tivemos
+;; foi uma seq. de caracteres que não foram uma string.
+; Para obter o resultado esperado nós precisaríamos atuar em cima dessa nova coleção
+(apply str (reverse "hello"))
+; "olleh"
+
+;; Então o livro alerta: As coleções em java são seq-able mas para a maioria dos cenários
+;; elas não oferecem as facilidades que as coleções embutidas do Clojure oferecem. Dê preferência
+;; pelas seqs. do Java em cenários de interoperabilidade.
+
+;; 2) Expressões regulares
+;; Não há muito o que dizer sobre o REGEX, apenas que o resultado também é uma seq. xD
+;(re-seq [re s])
+(re-seq #"\d" "hehe ok 1")
+; ("1")
+
+;; 3) A navegação pelo sistema de arquivos
+
+(import 'java.io.File)
+(.listFiles (File. "."))
+; #object["[Ljava.io.File;" 0x10ef5fa0 "[Ljava.io.File;@10ef5fa0"]
+
+(seq (.listFiles (File. ".")))
+; (#object[java.io.File 0x59c33386 "./basics"] 
+;     #object[java.io.File 0x719d35e8 "./.gitignore"] 
+;     #object[java.io.File 0x2f651f93 "./.git"])
+
+(map #(.getName %) (.listFiles (File. ".")))
+; ("basics" ".gitignore" ".git")
+
+;; Se quisermos realizar uma busca profunda em um diretório, nós podemos utilizar
+;; o (file-seq [dir]) retorna uma sequência da árvore de arquivos e diretórios a partir
+;; de um diretório. O diretório precisa implementar o `java.io.File`.
+(map #(.getName %) (file-seq (File. ".")))
+; ("." "basics" ... ".git" "config" "objects" "pack" "info" "HEAD" "info" ..  "tags")
+
+(count (file-seq (File. ".")))
+; 23
+
+;; E se quisessemos recuperar apenas os arquivos que foram modificados recentemente?
+;; Começamos escrevendo um predicado que converte os minutos para milisegundos
+(defn minutes-to-millis [minutes] (* minutes 1000 60))
+(defn recently-modified? [file]
+  (> (.lastModified file)
+     (- (System/currentTimeMillis) (minutes-to-millis 30))))
+
+(filter recently-modified? (file-seq (File. ".")))
+; (#object[java.io.File 0x6ef81f31 "./03-unifying-data-with-sequence.clj"])
+
+;; Seq-ing a Stream
+(require '[clojure.java.io :refer [reader]])
+
+(with-open [rdr (reader "./03-unifying-data-with-sequence.clj")]
+  (count (line-seq rdr)))
+; 596
+
+;; Podemos também, por exemplo, filtrar e contar apenas as linhas com conteúdo
+(with-open [rdr (reader "./03-unifying-data-with-sequence.clj")]
+  (count (filter #(re-find #"\S" %) (line-seq rdr))))
+; 468
+
+;; Munidos desse novo conhecimento, o livro propõe que criemos um programa para
+;; buscar arquivos fonte clojure e que contemos a quantidade de linhas não brancas,
+;; e retornemos a soma total de todos os arquivos.
+(use '[clojure.java.io :only (reader)])
+(use '[clojure.string :only (blank?)])
+
+(defn non-blank-line? [line] (not (blank? line)))
+(defn clojure-source? [file] (.endsWith (.toString file) ".clj"))
+(defn clojure-loc [base-file]
+  (reduce
+   +
+   (for [file (file-seq base-file)
+         :when (clojure-source? file)]
+     (with-open [rdr (reader file)]
+       (count (filter non-blank-line? (line-seq rdr)))))))
+
+(clojure-loc (File. "."))
+; 825
+
+;; Pra cada arquivo encontrado pela função `file-seq` nós verificamos se ele termina com
+;; `.clj`, se sim nós abrimos o arquivo, lemos as linhas com `line-seq`, verificamos se
+;; a linha não é branca e ai contamos todas as linhas filtradas. Logo depois o resultado é
+;; computado pela função (reduce +)
+
+;; A princípio essa função não é natural para mim, o pensamento procedural ainda me pega e
+;; escrever essas funções sem ajuda de ferramentas que auxiliem no rastreio dos parênteses
+;; é massante.
