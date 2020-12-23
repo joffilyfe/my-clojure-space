@@ -256,8 +256,6 @@
 ;; (split-with pred coll)
 ;; São funções para dividir sequências
 
-report erratum • discuss
-split-at takes an index, and split-with takes a predicate: 
 (split-at 5 (range 10))
 ; [(0 1 2 3 4) (5 6 7 8 9)]
 
@@ -265,7 +263,7 @@ split-at takes an index, and split-with takes a predicate:
 ; [(0 2 4 6 8 10) (12 14 16 18)]
 
 (split-with vowel? "aeiwaeiou")
-[(\a \e \i) (\w \a \e \i \o \u)]
+; [(\a \e \i) (\w \a \e \i \o \u)]
 
 ;; todas essas funções retornam sequências lazy.
 
